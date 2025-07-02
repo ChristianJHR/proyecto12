@@ -9,141 +9,157 @@
       margin: 0;
       padding: 0;
       background: #000;
-      font-family: sans-serif;
-    }
-    #emojiBackground {
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      font-size: 120px;
-      text-align: center;
-      z-index: -1;
-      line-height: 720px;
     }
   </style>
 </head>
 <body>
-  <div id="emojiBackground">🌄🌄🌄🌄🌄🌄🌄🌄🌄</div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/2.6.2/phaser.min.js"></script>
   <script>
-    // El resto del juego se mantiene igual, solo cambiaremos la parte de carga y uso de assets por emojis
-    // y modificamos texto de puntaje y salud
-
-    var GalaxyGem = new Phaser.Game(1280, 720, Phaser.CANVAS);
-
-    var emojiFontStyle = {
-      font: 'bold 28pt Arial',
-      fill: '#ffffff',
-      align: 'center'
-    };
-
-    var EstadosGalaxyGem = {
+    const GalaxyGem = new Phaser.Game(1280, 720, Phaser.CANVAS);
+    let EstadosGalaxyGem = {
       preload: function () {},
-
       create: function () {
-        // Texto para representar salud y vidas con emojis ♦️♥️♣️♠️
-        this.vidaEmojis = ['♦️', '♥️', '♣️', '♠️'];
-        this.vidaActual = 4;
-        this.vidaText = GalaxyGem.add.text(20, 20, this.getVidaString(), emojiFontStyle);
-
-        // Mostrar monedas
-        this.monedas = 0;
-        this.monedasText = GalaxyGem.add.text(1100, 20, '🪙 x ' + this.monedas, emojiFontStyle);
-
-        // Crear disparo 🔥 desde arma 🔫
-        this.player = GalaxyGem.add.text(GalaxyGem.width / 2, GalaxyGem.height - 100, '🔫', {
-          font: '90px Arial'
+        // Fondo de emojis de baqueros 🌄 grande
+        let bgText = '';
+        for (let y = 0; y < 10; y++) {
+          for (let x = 0; x < 22; x++) {
+            bgText += '🌄';
+          }
+          bgText += '\n';
+        }
+        this.bg = this.add.text(0, 0, bgText, {
+          font: '72px Arial', fill: '#fff'
         });
-        this.player.anchor.setTo(0.5);
+        this.bg.alpha = 0.1;
 
-        this.projectiles = [];
+        // Nave jugador 🔫
+        this.nave = this.add.text(this.world.centerX, this.world.centerY, '🔫', {
+          font: '72px Arial'
+        });
+        this.nave.anchor.setTo(0.5);
 
-        // Crear objetivos 🎯
-        this.objetivos = [];
-        for (let i = 0; i < 5; i++) {
-          let obj = GalaxyGem.add.text(100 + i * 200, 200, '🎯', {
-            font: '90px Arial'
-          });
-          obj.anchor.setTo(0.5);
-          this.objetivos.push(obj);
-        }
-
-        // Crear enemigos grandes indestructibles
-        this.indestructibles = [];
-        for (let i = 0; i < 2; i++) {
-          let big = GalaxyGem.add.text(200 + i * 600, 400, '🎯', {
-            font: '180px Arial'
-          });
-          big.anchor.setTo(0.5);
-          this.indestructibles.push(big);
-        }
-
+        // Cursor
         this.cursor = this.input.keyboard.createCursorKeys();
-        this.spacebar = this.input.keyboard.addKey(Phaser.Keyboard.SPACEBAR);
+
+        // Balas 🔥
+        this.bullets = this.add.group();
+        this.bulletTime = 0;
+        this.bulletInterval = 100; // Disparo continuo más rápido
+
+        // Meteoritos 🎯
+        this.meteoritos = [];
+        for (let i = 0; i < 50; i++) {
+          let m = this.add.text(Math.random() * 1200, Math.random() * -1000, '🎯', {
+            font: '48px Arial'
+          });
+          m.anchor.setTo(0.5);
+          m.vel = 2 + Math.random() * 3;
+          this.meteoritos.push(m);
+        }
+
+        // Meteoritos indestructibles 🎯 (más grandes)
+        this.indestructibles = [];
+        for (let i = 0; i < 10; i++) {
+          let m = this.add.text(Math.random() * 1200, Math.random() * -1000, '🎯', {
+            font: '96px Arial'
+          });
+          m.anchor.setTo(0.5);
+          m.vel = 2 + Math.random() * 3;
+          this.indestructibles.push(m);
+        }
+
+        // Monedas 🪙 (50 total)
+        this.monedas = [];
+        for (let i = 0; i < 50; i++) {
+          let m = this.add.text(Math.random() * 1200, Math.random() * -800, '🪙', {
+            font: '48px Arial'
+          });
+          m.anchor.setTo(0.5);
+          m.vel = 2 + Math.random() * 2;
+          this.monedas.push(m);
+        }
+
+        // Vida con ♦️♥️♣️♠️
+        this.vida = 4;
+        this.vidaText = this.add.text(50, 20, this.getVidaStr(), {
+          font: '24pt Arial', fill: '#fff'
+        });
+
+        // Score
+        this.score = 0;
+        this.scoreText = this.add.text(1000, 20, '🪙 x 0', {
+          font: '24pt Arial', fill: '#fff'
+        });
       },
 
-      getVidaString: function () {
-        return 'Vida: ' + this.vidaEmojis.slice(0, this.vidaActual).join('');
+      getVidaStr: function () {
+        return 'Vida: ' + '♦️♥️♣️♠️'.slice(0, this.vida);
       },
 
       update: function () {
-        if (this.cursor.left.isDown) {
-          this.player.x -= 10;
-        } else if (this.cursor.right.isDown) {
-          this.player.x += 10;
+        if (this.cursor.left.isDown) this.nave.x -= 10;
+        if (this.cursor.right.isDown) this.nave.x += 10;
+        if (this.cursor.up.isDown) this.nave.y -= 10;
+        if (this.cursor.down.isDown) this.nave.y += 10;
+
+        // Disparo automático continuo
+        if (this.time.now > this.bulletTime) {
+          let b = this.bullets.create(this.nave.x, this.nave.y, '');
+          b.anchor = new Phaser.Point(0.5, 0.5);
+          b.text = this.add.text(0, 0, '🔥', { font: '36px Arial' });
+          b.text.anchor.set(0.5);
+          b.addChild(b.text);
+          b.update = function () {
+            this.y -= 15;
+            if (this.y < -50) this.destroy();
+          };
+          this.bulletTime = this.time.now + this.bulletInterval;
         }
 
-        if (this.spacebar.isDown && this.projectiles.length < 10) {
-          let fuego = GalaxyGem.add.text(this.player.x, this.player.y - 30, '🔥', {
-            font: '40px Arial'
+        this.bullets.forEachAlive(b => b.update(), this);
+
+        this.meteoritos.forEach(m => {
+          m.y += m.vel;
+          if (m.y > 800) m.y = Math.random() * -500;
+          this.bullets.forEachAlive(b => {
+            if (Phaser.Rectangle.intersects(m.getBounds(), b.getBounds())) {
+              m.y = Math.random() * -800;
+              b.destroy();
+              this.score++;
+              this.scoreText.text = '🪙 x ' + this.score;
+            }
           });
-          fuego.anchor.setTo(0.5);
-          this.projectiles.push(fuego);
-        }
+        });
 
-        // Mover proyectiles
-        for (let i = this.projectiles.length - 1; i >= 0; i--) {
-          let fuego = this.projectiles[i];
-          fuego.y -= 15;
-
-          // Checar colisión con objetivos 🎯
-          for (let j = 0; j < this.objetivos.length; j++) {
-            if (Phaser.Rectangle.intersects(fuego.getBounds(), this.objetivos[j].getBounds())) {
-              fuego.destroy();
-              this.objetivos[j].destroy();
-              this.projectiles.splice(i, 1);
-              this.monedas += 1;
-              this.monedasText.text = '🪙 x ' + this.monedas;
-              return;
+        this.indestructibles.forEach(m => {
+          m.y += m.vel;
+          if (m.y > 800) m.y = Math.random() * -800;
+          if (Phaser.Rectangle.intersects(m.getBounds(), this.nave.getBounds())) {
+            if (this.vida > 0) this.vida--;
+            this.vidaText.text = this.getVidaStr();
+            if (this.vida <= 0) {
+              alert('¡Perdiste!');
+              location.reload();
             }
+            m.y = Math.random() * -800;
           }
+        });
 
-          // Colisión con indestructibles 🎯 grandes
-          for (let j = 0; j < this.indestructibles.length; j++) {
-            if (Phaser.Rectangle.intersects(fuego.getBounds(), this.indestructibles[j].getBounds())) {
-              fuego.destroy();
-              this.projectiles.splice(i, 1);
-              this.vidaActual -= 1;
-              this.vidaText.text = this.getVidaString();
-              if (this.vidaActual <= 0) {
-                alert('¡Has perdido todas tus vidas! 😵');
-                location.reload();
-              }
-              return;
-            }
+        this.monedas.forEach(m => {
+          m.y += m.vel;
+          if (m.y > 800) m.y = Math.random() * -800;
+          if (Phaser.Rectangle.intersects(m.getBounds(), this.nave.getBounds())) {
+            m.y = Math.random() * -800;
+            this.score++;
+            this.scoreText.text = '🪙 x ' + this.score;
           }
-
-          // Si se sale de pantalla
-          if (fuego.y < -50) {
-            fuego.destroy();
-            this.projectiles.splice(i, 1);
-          }
-        }
+        });
       }
     };
 
-    GalaxyGem.state.add('JuegoEmoji', EstadosGalaxyGem);
-    GalaxyGem.state.start('JuegoEmoji');
+    alert("¡Da click en el centro de la pantalla para jugar!\nPresiona F5 para reiniciar el juego\nUtiliza las direccionales para moverte");
+    GalaxyGem.state.add('MiJuegoGG', EstadosGalaxyGem);
+    GalaxyGem.state.start('MiJuegoGG');
   </script>
 </body>
 </html>
