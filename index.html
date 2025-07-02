@@ -3,163 +3,140 @@
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="utf-8" />
-  <title>DreamCatcher Emoji Edition</title>
+  <title>Emoji Shooter</title>
   <style>
     body {
       margin: 0;
       padding: 0;
       background: #000;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
     }
   </style>
 </head>
 <body>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/2.6.2/phaser.min.js"></script>
   <script>
-    const GalaxyGem = new Phaser.Game(1280, 720, Phaser.CANVAS);
-    let EstadosGalaxyGem = {
-      preload: function () {},
-      create: function () {
-        // Fondo de emojis de baqueros 🌄 grande
-        let bgText = '';
-        for (let y = 0; y < 10; y++) {
-          for (let x = 0; x < 22; x++) {
-            bgText += '🌄';
-          }
-          bgText += '\n';
-        }
-        this.bg = this.add.text(0, 0, bgText, {
-          font: '72px Arial', fill: '#fff'
-        });
-        this.bg.alpha = 0.1;
+    var game = new Phaser.Game(window.innerWidth, window.innerHeight, Phaser.CANVAS, '', { preload: preload, create: create, update: update });
 
-        // Nave jugador 🔫
-        this.nave = this.add.text(this.world.centerX, this.world.centerY, '🔫', {
-          font: '72px Arial'
-        });
-        this.nave.anchor.setTo(0.5);
+    var player;
+    var bullets;
+    var coins;
+    var enemies;
+    var enemyBig;
+    var cursors;
+    var fireRate = 100;
+    var nextFire = 0;
+    var score = 0;
+    var scoreText;
 
-        // Cursor
-        this.cursor = this.input.keyboard.createCursorKeys();
+    function preload() {
+      game.stage.backgroundColor = '#000';
+      game.load.image('fondo', 'https://twemoji.maxcdn.com/v/latest/72x72/1f304.png'); // 🌄
+      game.load.image('player', 'https://twemoji.maxcdn.com/v/latest/72x72/1f52b.png'); // 🔫
+      game.load.image('bullet', 'https://twemoji.maxcdn.com/v/latest/72x72/1f525.png'); // 🔥
+      game.load.image('coin', 'https://twemoji.maxcdn.com/v/latest/72x72/1fa99.png'); // 🪙
+      game.load.image('enemy', 'https://twemoji.maxcdn.com/v/latest/72x72/1f3af.png'); // 🎯
+    }
 
-        // Balas 🔥
-        this.bullets = this.add.group();
-        this.bulletTime = 0;
-        this.bulletInterval = 100; // Disparo continuo más rápido
+    function create() {
+      // Fondo
+      var bg = game.add.tileSprite(0, 0, game.width, game.height, 'fondo');
+      bg.width = game.width;
+      bg.height = game.height;
 
-        // Meteoritos 🎯
-        this.meteoritos = [];
-        for (let i = 0; i < 50; i++) {
-          let m = this.add.text(Math.random() * 1200, Math.random() * -1000, '🎯', {
-            font: '48px Arial'
-          });
-          m.anchor.setTo(0.5);
-          m.vel = 2 + Math.random() * 3;
-          this.meteoritos.push(m);
-        }
+      // Jugador
+      player = game.add.sprite(game.world.centerX, game.world.height - 100, 'player');
+      player.anchor.set(0.5);
+      game.physics.arcade.enable(player);
 
-        // Meteoritos indestructibles 🎯 (más grandes)
-        this.indestructibles = [];
-        for (let i = 0; i < 10; i++) {
-          let m = this.add.text(Math.random() * 1200, Math.random() * -1000, '🎯', {
-            font: '96px Arial'
-          });
-          m.anchor.setTo(0.5);
-          m.vel = 2 + Math.random() * 3;
-          this.indestructibles.push(m);
-        }
+      // Balas
+      bullets = game.add.group();
+      bullets.enableBody = true;
+      bullets.physicsBodyType = Phaser.Physics.ARCADE;
+      bullets.createMultiple(50, 'bullet');
+      bullets.setAll('anchor.x', 0.5);
+      bullets.setAll('anchor.y', 1);
+      bullets.setAll('outOfBoundsKill', true);
+      bullets.setAll('checkWorldBounds', true);
 
-        // Monedas 🪙 (50 total)
-        this.monedas = [];
-        for (let i = 0; i < 50; i++) {
-          let m = this.add.text(Math.random() * 1200, Math.random() * -800, '🪙', {
-            font: '48px Arial'
-          });
-          m.anchor.setTo(0.5);
-          m.vel = 2 + Math.random() * 2;
-          this.monedas.push(m);
-        }
-
-        // Vida con ♦️♥️♣️♠️
-        this.vida = 4;
-        this.vidaText = this.add.text(50, 20, this.getVidaStr(), {
-          font: '24pt Arial', fill: '#fff'
-        });
-
-        // Score
-        this.score = 0;
-        this.scoreText = this.add.text(1000, 20, '🪙 x 0', {
-          font: '24pt Arial', fill: '#fff'
-        });
-      },
-
-      getVidaStr: function () {
-        return 'Vida: ' + '♦️♥️♣️♠️'.slice(0, this.vida);
-      },
-
-      update: function () {
-        if (this.cursor.left.isDown) this.nave.x -= 10;
-        if (this.cursor.right.isDown) this.nave.x += 10;
-        if (this.cursor.up.isDown) this.nave.y -= 10;
-        if (this.cursor.down.isDown) this.nave.y += 10;
-
-        // Disparo automático continuo
-        if (this.time.now > this.bulletTime) {
-          let b = this.bullets.create(this.nave.x, this.nave.y, '');
-          b.anchor = new Phaser.Point(0.5, 0.5);
-          b.text = this.add.text(0, 0, '🔥', { font: '36px Arial' });
-          b.text.anchor.set(0.5);
-          b.addChild(b.text);
-          b.update = function () {
-            this.y -= 15;
-            if (this.y < -50) this.destroy();
-          };
-          this.bulletTime = this.time.now + this.bulletInterval;
-        }
-
-        this.bullets.forEachAlive(b => b.update(), this);
-
-        this.meteoritos.forEach(m => {
-          m.y += m.vel;
-          if (m.y > 800) m.y = Math.random() * -500;
-          this.bullets.forEachAlive(b => {
-            if (Phaser.Rectangle.intersects(m.getBounds(), b.getBounds())) {
-              m.y = Math.random() * -800;
-              b.destroy();
-              this.score++;
-              this.scoreText.text = '🪙 x ' + this.score;
-            }
-          });
-        });
-
-        this.indestructibles.forEach(m => {
-          m.y += m.vel;
-          if (m.y > 800) m.y = Math.random() * -800;
-          if (Phaser.Rectangle.intersects(m.getBounds(), this.nave.getBounds())) {
-            if (this.vida > 0) this.vida--;
-            this.vidaText.text = this.getVidaStr();
-            if (this.vida <= 0) {
-              alert('¡Perdiste!');
-              location.reload();
-            }
-            m.y = Math.random() * -800;
-          }
-        });
-
-        this.monedas.forEach(m => {
-          m.y += m.vel;
-          if (m.y > 800) m.y = Math.random() * -800;
-          if (Phaser.Rectangle.intersects(m.getBounds(), this.nave.getBounds())) {
-            m.y = Math.random() * -800;
-            this.score++;
-            this.scoreText.text = '🪙 x ' + this.score;
-          }
-        });
+      // Monedas
+      coins = game.add.group();
+      coins.enableBody = true;
+      for (var i = 0; i < 20; i++) {
+        var coin = coins.create(game.world.randomX, game.world.randomY / 2, 'coin');
+        coin.anchor.set(0.5);
       }
-    };
 
-    alert("¡Da click en el centro de la pantalla para jugar!\nPresiona F5 para reiniciar el juego\nUtiliza las direccionales para moverte");
-    GalaxyGem.state.add('MiJuegoGG', EstadosGalaxyGem);
-    GalaxyGem.state.start('MiJuegoGG');
+      // Enemigos pequeños (destructibles)
+      enemies = game.add.group();
+      enemies.enableBody = true;
+      for (var i = 0; i < 10; i++) {
+        var enemy = enemies.create(game.world.randomX, game.world.randomY / 2, 'enemy');
+        enemy.anchor.set(0.5);
+        enemy.scale.setTo(0.6);
+      }
+
+      // Enemigo grande (indestructible)
+      enemyBig = game.add.sprite(game.world.randomX, 100, 'enemy');
+      enemyBig.anchor.set(0.5);
+      enemyBig.scale.setTo(1.5);
+      game.physics.arcade.enable(enemyBig);
+
+      // Input
+      cursors = game.input.keyboard.createCursorKeys();
+
+      // Texto
+      scoreText = game.add.text(20, 20, '🪙 0 / 50', { font: '24px Arial', fill: '#fff' });
+    }
+
+    function update() {
+      // Movimiento
+      if (cursors.left.isDown) {
+        player.x -= 5;
+      } else if (cursors.right.isDown) {
+        player.x += 5;
+      }
+      if (cursors.up.isDown) {
+        player.y -= 5;
+      } else if (cursors.down.isDown) {
+        player.y += 5;
+      }
+
+      // Disparo continuo
+      if (game.time.now > nextFire) {
+        var bullet = bullets.getFirstExists(false);
+        if (bullet) {
+          bullet.reset(player.x, player.y);
+          bullet.body.velocity.y = -400;
+          nextFire = game.time.now + fireRate;
+        }
+      }
+
+      // Colisiones
+      game.physics.arcade.overlap(bullets, enemies, destroyEnemy, null, this);
+      game.physics.arcade.overlap(player, coins, collectCoin, null, this);
+      game.physics.arcade.overlap(player, enemyBig, hitBigEnemy, null, this);
+    }
+
+    function destroyEnemy(bullet, enemy) {
+      bullet.kill();
+      enemy.kill();
+    }
+
+    function collectCoin(player, coin) {
+      coin.kill();
+      score++;
+      scoreText.text = '🪙 ' + score + ' / 50';
+    }
+
+    function hitBigEnemy() {
+      // Aquí puedes hacer que pierda vida si se implementa sistema de corazones ♦️♥️♣️♠️
+      alert('¡Has chocado con un enemigo gigante!');
+      game.state.restart();
+    }
   </script>
 </body>
 </html>
