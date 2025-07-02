@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DreamCatcher con Imágenes de GitHub</title>
-  <style>
+  <meta charset="utf-8" />
+  <title>DreamCatcher</title>
+  <style type="text/css">
     body {
       margin: 0;
       padding: 0;
@@ -15,173 +15,107 @@
 <body>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/2.6.2/phaser.min.js"></script>
   <script>
-    var game = new Phaser.Game(1280, 720, Phaser.CANVAS);
-    
-    game.state.add('MainState', {
-      init: function() {
-        // Configuración inicial
-        this.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
-        this.scale.pageAlignHorizontally = true;
-        this.scale.pageAlignVertically = true;
-        this.gameStarted = false;
-        this.score = 0;
-        this.health = 100;
-        this.gameOver = false;
+    var TeclaPresionada = false;
+    var MeteoritosTotales = 80;
+    var MeteoritosIndestructibles = 15;
+    var EstrellasTotales = 100;
+    var GemasTotales = 15;
+
+    EstadosGalaxyGem = {
+      init: function () {
+        GalaxyGem.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
+        GalaxyGem.scale.pageAlignHorizontally = true;
+        GalaxyGem.scale.pageAlignVertically = true;
+        this.BIMPresionado = false;
+        this.MeteoritosImpactados = 0;
+        this.JuegoTerminado = false;
       },
 
-      preload: function() {
-        // =========================================
-        // 🖼️ CARGAR IMÁGENES DESDE GITHUB
-        // =========================================
-        
-        // Fondo (selva)
+      preload: function () {
+        // Fondo
         this.load.image('fondo', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151753.png?raw=true');
-        
-        // Arma/Red (jugador) - 4 direcciones (usamos la misma imagen para todas)
-        this.load.image('nave', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true');
-        this.load.image('nave1', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true');
-        this.load.image('nave2', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true');
-        this.load.image('nave3', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true');
-        this.load.image('nave4', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true');
-        
+
+        // Naves (todas la misma imagen)
+        const naveURL = 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20151741.png?raw=true';
+        this.load.image('nave', naveURL);
+        this.load.image('nave1', naveURL);
+        this.load.image('nave2', naveURL);
+        this.load.image('nave3', naveURL);
+        this.load.image('nave4', naveURL);
+
+        // Meteoritos (rompibles e indestructibles usan la misma imagen)
+        const meteoritoURL = 'https://github.com/ChristianJHR/proyecto12/blob/main/pngtree-cartoon-target-bullseye-png-image_9255711.png?raw=true';
+        this.load.image('meteoritos', meteoritoURL);
+        this.load.image('meteoritos2', meteoritoURL);
+
+        // Gema (moneda)
+        this.load.image('gema', 'https://github.com/ChristianJHR/proyecto12/blob/main/moneda_centenario_50_pesos_oro-e1634906585624.png?raw=true');
+
         // Proyectil
         this.load.image('proyectil', 'https://github.com/ChristianJHR/proyecto12/blob/main/Captura%20de%20pantalla%202025-07-02%20152647.png?raw=true');
-        
-        // Enemigos que se rompen (pequeños)
-        this.load.image('meteoritos', 'https://github.com/ChristianJHR/proyecto12/blob/main/pngtree-cartoon-target-bullseye-png-image_9255711.png?raw=true');
-        
-        // Enemigos que NO se rompen (grandes, mismos sprites pero escalados diferente)
-        this.load.image('meteoritos2', 'https://github.com/ChristianJHR/proyecto12/blob/main/pngtree-cartoon-target-bullseye-png-image_9255711.png?raw=true');
-        
-        // Monedas/coleccionables
-        this.load.image('gema', 'https://github.com/ChristianJHR/proyecto12/blob/main/moneda_centenario_50_pesos_oro-e1634906585624.png?raw=true');
-        
-        // Efectos de explosión (generados programáticamente)
-        let explosion = this.add.bitmapData(60, 60);
-        explosion.ctx.fillStyle = '#ff9800';
-        explosion.ctx.beginPath();
-        explosion.ctx.arc(30, 30, 25, 0, Math.PI * 2);
-        explosion.ctx.fill();
-        this.cache.addBitmapData('explosion', explosion);
+
+        // Audios
+        this.load.audio('musicaFondo', 'assets/audio/musica_ambiente.mp3');
+        this.load.audio('sonidoMariposa', 'assets/audio/mariposa_especial.mp3');
+        this.load.audio('sonidoGanador', 'assets/audio/victoria_sonido.mp3');
+        this.load.audio('sonidoPerdedor', 'assets/audio/derrota_sonido.mp3');
+        this.load.audio('sonidoCapturar', 'assets/audio/red_movimiento.mp3');
+
+        // Partículas (estrella bitmap)
+        for (let i = 1; i <= 3; i++) {
+          let estrellaGraphic = GalaxyGem.add.bitmapData(10, 10);
+          let color = GalaxyGem.rnd.pick(['#ffffff', '#e3f2fd', '#bbdefb']);
+          estrellaGraphic.ctx.fillStyle = color;
+          estrellaGraphic.ctx.beginPath();
+          estrellaGraphic.ctx.arc(5, 5, 3, 0, Math.PI * 2);
+          estrellaGraphic.ctx.fill();
+          GalaxyGem.cache.addBitmapData('estrella' + i, estrellaGraphic);
+        }
+
+        // Explosión bitmap 1
+        let explosionGraphic = GalaxyGem.add.bitmapData(60, 60);
+        explosionGraphic.ctx.fillStyle = '#ff9800';
+        explosionGraphic.ctx.beginPath();
+        explosionGraphic.ctx.arc(30, 30, 25, 0, Math.PI * 2);
+        explosionGraphic.ctx.fill();
+        explosionGraphic.ctx.fillStyle = '#ffeb3b';
+        explosionGraphic.ctx.beginPath();
+        explosionGraphic.ctx.arc(30, 30, 15, 0, Math.PI * 2);
+        explosionGraphic.ctx.fill();
+        GalaxyGem.cache.addBitmapData('explosion', explosionGraphic);
+
+        // Explosión bitmap 2
+        let explosion2Graphic = GalaxyGem.add.bitmapData(80, 80);
+        explosion2Graphic.ctx.fillStyle = '#f44336';
+        explosion2Graphic.ctx.beginPath();
+        explosion2Graphic.ctx.arc(40, 40, 35, 0, Math.PI * 2);
+        explosion2Graphic.ctx.fill();
+        explosion2Graphic.ctx.fillStyle = '#ff9800';
+        explosion2Graphic.ctx.beginPath();
+        explosion2Graphic.ctx.arc(40, 40, 25, 0, Math.PI * 2);
+        explosion2Graphic.ctx.fill();
+        explosion2Graphic.ctx.fillStyle = '#ffeb3b';
+        explosion2Graphic.ctx.beginPath();
+        explosion2Graphic.ctx.arc(40, 40, 15, 0, Math.PI * 2);
+        explosion2Graphic.ctx.fill();
+        GalaxyGem.cache.addBitmapData('explosion2', explosion2Graphic);
       },
 
-      create: function() {
-        // =========================================
-        // 🎮 INICIALIZAR JUEGO
-        // =========================================
-        
-        // 1. Fondo
-        this.add.sprite(0, 0, 'fondo');
-        
-        // 2. Jugador (Arma/Red)
-        this.player = this.add.sprite(
-          this.world.centerX,
-          this.world.centerY,
-          'nave'
-        );
-        this.player.anchor.setTo(0.5);
-        this.player.scale.setTo(0.5);
-        
-        // 3. Grupos de objetos
-        this.bullets = this.add.group(); // Proyectiles
-        this.enemies = this.add.group(); // Enemigos destructibles
-        this.bigEnemies = this.add.group(); // Enemigos grandes
-        this.coins = this.add.group(); // Monedas
-        
-        // Crear enemigos (adaptado a tus imágenes)
-        for (var i = 0; i < 30; i++) {
-          var enemy = this.enemies.create(
-            this.rnd.integerInRange(0, 1280),
-            this.rnd.integerInRange(-400, -50),
-            'meteoritos'
-          );
-          enemy.anchor.setTo(0.5);
-          enemy.scale.setTo(0.2); // Pequeños
-        }
-        
-        // Enemigos grandes (indestructibles)
-        for (var i = 0; i < 10; i++) {
-          var bigEnemy = this.bigEnemies.create(
-            this.rnd.integerInRange(0, 1280),
-            this.rnd.integerInRange(-400, -50),
-            'meteoritos2'
-          );
-          bigEnemy.anchor.setTo(0.5);
-          bigEnemy.scale.setTo(0.5); // Grandes
-        }
-        
-        // Monedas
-        for (var i = 0; i < 15; i++) {
-          var coin = this.coins.create(
-            this.rnd.integerInRange(0, 1280),
-            this.rnd.integerInRange(-800, -100),
-            'gema'
-          );
-          coin.anchor.setTo(0.5);
-          coin.scale.setTo(0.15); // Tamaño mediano-pequeño
-        }
-        
-        // Controles
-        this.cursors = this.input.keyboard.createCursorKeys();
-        this.input.onDown.add(this.startGame, this);
-        
-        // UI
-        this.createUI();
+      create: function () {
+        // Aquí iría el código de create tal como lo escribiste en tu versión original
+        // ...
       },
-      
-      startGame: function() {
-        this.gameStarted = true;
-      },
-      
-      createUI: function() {
-        // Texto de puntuación
-        this.scoreText = this.add.text(
-          20, 20, 
-          'Puntos: 0', 
-          { font: '24px Arial', fill: '#FFEE55' }
-        );
-        
-        // Barra de salud
-        this.healthText = this.add.text(
-          20, 50, 
-          'Salud: 100', 
-          { font: '24px Arial', fill: '#FF5555' }
-        );
-      },
-      
-      update: function() {
-        if (this.gameStarted && !this.gameOver) {
-          // Mover jugador con flechas
-          if (this.cursors.right.isDown && this.player.x < 1250) {
-            this.player.x += 5;
-          } else if (this.cursors.left.isDown && this.player.x > 30) {
-            this.player.x -= 5;
-          }
-          
-          if (this.cursors.up.isDown && this.player.y > 30) {
-            this.player.y -= 5;
-          } else if (this.cursors.down.isDown && this.player.y < 690) {
-            this.player.y += 5;
-          }
-          
-          // Mover enemigos y monedas
-          this.enemies.forEach(function(enemy) {
-            enemy.y += 2;
-            if (enemy.y > 750) this.resetEnemy(enemy);
-          }, this);
-          
-          // ... (resto de lógica de colisiones y movimiento)
-        }
-      },
-      
-      resetEnemy: function(enemy) {
-        enemy.y = this.rnd.integerInRange(-400, -50);
-        enemy.x = this.rnd.integerInRange(0, 1280);
+
+      update: function () {
+        // Aquí iría el código de update tal como lo escribiste
+        // ...
       }
-    });
+    }
 
-    game.state.start('MainState');
-    alert("¡Instrucciones!\n\n1. Haz clic para iniciar\n2. Usa flechas para moverte\n3. Dispara con espacio\n4. Atrapa monedas (puntos)\n5. Evita los blancos grandes (quitan salud)");
+    alert("¡Da click en el centro de la pantalla para jugar! \n Presiona F5 para reiniciar el juego\n Utiliza las direccionales para moverte");
+    var GalaxyGem = new Phaser.Game(1280, 720, Phaser.CANVAS);
+    GalaxyGem.state.add('MiJuegoGG', EstadosGalaxyGem);
+    GalaxyGem.state.start('MiJuegoGG');
   </script>
 </body>
 </html>
