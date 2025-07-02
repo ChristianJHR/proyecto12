@@ -34,61 +34,70 @@
 
     function preload() {
       game.stage.backgroundColor = '#000';
-      game.load.image('fondo', 'https://twemoji.maxcdn.com/v/latest/72x72/1f304.png'); // 🌄
-      game.load.image('player', 'https://twemoji.maxcdn.com/v/latest/72x72/1f52b.png'); // 🔫
-      game.load.image('bullet', 'https://twemoji.maxcdn.com/v/latest/72x72/1f525.png'); // 🔥
-      game.load.image('coin', 'https://twemoji.maxcdn.com/v/latest/72x72/1fa99.png'); // 🪙
-      game.load.image('enemy', 'https://twemoji.maxcdn.com/v/latest/72x72/1f3af.png'); // 🎯
     }
 
     function create() {
-      // Fondo
-      var bg = game.add.tileSprite(0, 0, game.width, game.height, 'fondo');
-      bg.width = game.width;
-      bg.height = game.height;
+      // Fondo gigante 🌄 como texto
+      var bgText = game.add.text(game.world.centerX, game.world.centerY, '🌄', {
+        font: (game.height) + 'px Arial',
+        fill: '#fff'
+      });
+      bgText.anchor.set(0.5);
 
-      // Jugador
-      player = game.add.sprite(game.world.centerX, game.world.height - 100, 'player');
+      // Jugador 🔫
+      player = game.add.text(game.world.centerX, game.world.height - 100, '🔫', {
+        font: '64px Arial', fill: '#fff'
+      });
       player.anchor.set(0.5);
       game.physics.arcade.enable(player);
 
-      // Balas
+      // Balas 🔥
       bullets = game.add.group();
       bullets.enableBody = true;
       bullets.physicsBodyType = Phaser.Physics.ARCADE;
-      bullets.createMultiple(50, 'bullet');
-      bullets.setAll('anchor.x', 0.5);
-      bullets.setAll('anchor.y', 1);
-      bullets.setAll('outOfBoundsKill', true);
-      bullets.setAll('checkWorldBounds', true);
+      for (var i = 0; i < 50; i++) {
+        var bullet = game.add.text(0, 0, '🔥', { font: '32px Arial', fill: '#fff' });
+        game.physics.arcade.enable(bullet);
+        bullet.anchor.set(0.5);
+        bullet.kill();
+        bullets.add(bullet);
+      }
 
-      // Monedas
+      // Monedas 🪙 (menos cantidad para dificultad)
       coins = game.add.group();
       coins.enableBody = true;
       for (var i = 0; i < 20; i++) {
-        var coin = coins.create(game.world.randomX, game.world.randomY / 2, 'coin');
+        var coin = game.add.text(game.world.randomX, game.world.randomY / 2, '🪙', {
+          font: '32px Arial', fill: '#fff'
+        });
         coin.anchor.set(0.5);
+        game.physics.arcade.enable(coin);
+        coins.add(coin);
       }
 
-      // Enemigos pequeños (destructibles)
+      // Enemigos pequeños 🎯 destructibles
       enemies = game.add.group();
       enemies.enableBody = true;
-      for (var i = 0; i < 10; i++) {
-        var enemy = enemies.create(game.world.randomX, game.world.randomY / 2, 'enemy');
+      for (var i = 0; i < 6; i++) {
+        var enemy = game.add.text(game.world.randomX, game.world.randomY / 2, '🎯', {
+          font: '36px Arial', fill: '#fff'
+        });
         enemy.anchor.set(0.5);
-        enemy.scale.setTo(0.6);
+        game.physics.arcade.enable(enemy);
+        enemies.add(enemy);
       }
 
-      // Enemigo grande (indestructible)
-      enemyBig = game.add.sprite(game.world.randomX, 100, 'enemy');
+      // Enemigo grande 🎯 (indestructible)
+      enemyBig = game.add.text(game.world.randomX, 100, '🎯', {
+        font: '96px Arial', fill: '#fff'
+      });
       enemyBig.anchor.set(0.5);
-      enemyBig.scale.setTo(1.5);
       game.physics.arcade.enable(enemyBig);
 
       // Input
       cursors = game.input.keyboard.createCursorKeys();
 
-      // Texto
+      // Texto puntuación
       scoreText = game.add.text(20, 20, '🪙 0 / 50', { font: '24px Arial', fill: '#fff' });
     }
 
@@ -105,9 +114,9 @@
         player.y += 5;
       }
 
-      // Disparo continuo
+      // Disparo continuo 🔥
       if (game.time.now > nextFire) {
-        var bullet = bullets.getFirstExists(false);
+        var bullet = bullets.getFirstDead();
         if (bullet) {
           bullet.reset(player.x, player.y);
           bullet.body.velocity.y = -400;
@@ -133,7 +142,6 @@
     }
 
     function hitBigEnemy() {
-      // Aquí puedes hacer que pierda vida si se implementa sistema de corazones ♦️♥️♣️♠️
       alert('¡Has chocado con un enemigo gigante!');
       game.state.restart();
     }
